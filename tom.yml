@@ -1,0 +1,47 @@
+---
+- hosts: all 
+  become: yes 
+  vars:
+  - os: "{{ansible_facts['distribution']}}"
+  tasks:
+  - name: java installed or not
+    command: java -version
+    register: x
+    ignore_errors: yes
+  - name: java installing.......RedHat
+    package:
+     name: java-11-openjdk.*
+     state: present
+    when: x.rc != 0 and os == "RedHat"
+  - name: java installing.....AmazonLinux
+    package: 
+     name: java-11-amazon-corretto.x86_64 
+     state: present
+    when: x.rc != 0 and os == "Amazon"
+  - name: java installing......Ubuntu
+    command: " apt install default-jdk"
+    when: x.rc != 0 and os == "Ubuntu"
+  - name: Tomcat zip file downloding....
+    get_url:
+     url: https://dlcdn.apache.org/tomcat/tomcat-10/v10.0.27/bin/apache-tomcat-10.0.27.tar.gz
+     dest: "/opt/"
+  - name: check untared file available or not
+    command: "ls /opt/apache-tomcat-10.0.27"
+    register: y
+    ignore_errors: yes
+  - name: extracting tar file
+    unarchive:
+     src: "/opt/apache-tomcat-10.0.27.tar.gz"
+     dest: "/opt/"
+    when: y.rc != 0
+  - name: configraging tomcat......
+    template:
+     src: "{{item.src}}"
+     dest: "{{item.dest}}"
+    with_items:
+     - src: "/etc/ansible/context.j2"
+       dest: "/opt/apache-tomcat-10.0.27/webapps/manager/META-INF/context.xml"
+     - src: "/etc/ansible/tomcat-users.j2"
+       dest: "/opt/apache-tomcat-10.0.27/conf/tomcat-users.xml"
+  - name: start the httpd server....
+    command : nohup   /opt/apache-tomcat-10.0.27/bin/startup.sh
